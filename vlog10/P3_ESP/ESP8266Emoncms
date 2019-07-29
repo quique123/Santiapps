@@ -1,0 +1,148 @@
+//THIS IS FOR A NANO THAT WRITES TO THE ESP8266
+//HTTP POST/////////////HTTP POST
+//HTTP POST/////////////HTTP POST
+//HTTP POST/////////////HTTP POST
+//HTTP POST/////////////HTTP POST
+//HTTP POST/////////////HTTP POST
+//HTTP POST/////////////HTTP POST
+//HTTP POST/////////////HTTP POST
+
+#include "SoftwareSerial.h"
+//For DHT22 Grove Pro
+#include "DHT.h"
+#define DHTPIN A1     // what pin we're connected to
+#define DHTTYPE DHT22   // DHT 22  (AM2302)
+DHT dht(DHTPIN, DHTTYPE);
+
+String ssid = "ssid";
+String password = "key";
+String server = "server.com"; // www.example.com
+String uri = "/emoncms/input/post";
+#define EMON_APIKEY F("bde919c2b47c5f12d0b1b4478f78107f")//ded82da428c8f722cdb3044bf29fabe8")//
+
+byte dat [5];
+String temp , hum;
+String data;
+char dataString[20];
+char tempString[20];
+char humString[20];
+
+SoftwareSerial esp(6, 7);// RX, TX
+
+void setup() {
+  esp.begin(9600);
+  Serial.begin(9600);
+  Serial.println("setup");
+  //esp.print("AT+UART_DEF=9600,8,1,0,0");
+  reset();
+  connectWifi();
+}
+
+void reset() {
+  Serial.println("reset");
+  esp.println("AT+RST");
+  delay(1000);
+  if (esp.find("OK") ) Serial.println("Module Reset");
+}
+
+void connectWifi() {
+  Serial.println("connect to wifi");
+  String cmd = "AT+CWJAP=\"" + ssid + "\",\"" + password + "\"";
+  esp.println(cmd);
+  delay(400);
+  while (esp.available()) {
+    String inData = esp.readStringUntil('\n');
+    Serial.println("Got reponse from ESP8266: " + inData);
+  }
+
+
+  if (esp.find("OK")) {
+    Serial.println("Connected!");
+  } else {
+    connectWifi();
+    Serial.println("Cannot connect to wifi");
+  }
+}
+
+
+void start_test () {
+  //For DHT22 Grove Pro
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  dtostrf(t, 4, 2, tempString);  //convert flat to char
+  dtostrf(h, 4, 2, humString);  //convert flat to char
+  strcpy(dataString, tempString);
+  strcat(dataString, humString);
+  Serial.println(dataString);
+}
+
+void loop() {
+  Serial.println("loop");
+  start_test();
+  httppost();
+  delay(100000);//100k ms = 100s or ~ 1.8m
+}
+
+/* A POST contains a header block and then a single line of the data values, something like this:
+
+   POST /emoncms/input/post.json HTTP/1.1\r\n
+   Host: URL_OF_THE_SERVER\r\n
+   Content-Type: application/x-www-form-urlencoded\r\n
+   Content-Length: 100\r\n
+   \r\n
+   apikey=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&node=xx&csv=xx,xx,xx,xx\r\n
+
+   Most of the content is the same every time and simply hardcoded in here with print() direct to the
+   ethernet stream client. Two things change every time, the data themselves and the length of the
+   string containing the data.
+
+   The fixed strings are all written into the flash program space with F("") to prevent them filling
+   runtime RAM.
+*/
+
+void httppost () {
+  esp.println("AT+CIPSTART=\"TCP\",\"" + server + "\",80");//start a TCP connection.
+  if ( esp.find("OK")) {
+    Serial.println("TCP connection ready");
+  }
+
+  //  //CODE USED TO BUILD COMPLETE STRING
+  String nodeData1 = "node=fortnite&data={\"t\":";
+  String nodeData2 = nodeData1 + tempString;
+  String nodeData3 = nodeData2 + ",\"h\":";
+  String nodeData4 = nodeData3 + humString;
+  String nodeData5 = nodeData4 + "}";
+
+  String apiKeyString = "&apikey=";
+  apiKeyString.concat(EMON_APIKEY); //JOIN PARAMETER LITERAL STRING => String Object
+
+  String finalData = nodeData5 + apiKeyString; //COMBINE BOTH PREVIOUS STRING OBJECTS
+  Serial.println(finalData.length());
+  Serial.println(finalData);
+  //unsigned int tamano = strlen(dataString);
+  //  char postThis[100] = finalData;
+  //  //ADDING THIS TO POSTREQUEST +finalData; && changing length for strlen(finalData)
+
+  delay(1000);
+  String postRequest = "POST " + uri + " HTTP/1.1\r\n" + "Host: " + server + "\r\n" + "Accept: *" + "/" + "*\r\n" + "Content-Length: " + finalData.length() + "\r\n" + "Content-Type: application/x-www-form-urlencoded\r\n" + "\r\n" + finalData; //"apikey=" + EMON_APIKEY + "&node=fortnite&data={" + "\"a\":" + dataString + "}";
+  Serial.println("postRequest");
+  Serial.println(postRequest);
+  String sendCmd = "AT+CIPSEND=";//determine the number of caracters to be sent.
+  esp.print(sendCmd);
+  esp.println(postRequest.length());
+  delay(500);
+  if (esp.find(">")) {
+    Serial.println("Sending..");
+    esp.print(postRequest);
+    if (esp.find("SEND OK")) {
+      Serial.println("Packet sent");
+      while (esp.available()) {
+        String tmpResp = esp.readString();
+        Serial.println(tmpResp);
+      }
+      // close the connection
+      esp.println("AT+CIPCLOSE");
+    }
+  }
+}
+
