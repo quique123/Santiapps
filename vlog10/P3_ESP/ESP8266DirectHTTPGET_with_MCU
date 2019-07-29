@@ -1,5 +1,5 @@
 /*
- *  Simple HTTP get webclient test
+ *  Simple HTTP get webclient test w/o softwareSerial
  */
 //THIS IS DIRECTLY FOR THE ESP8266 MCU
 #include <ESP8266WiFi.h>
