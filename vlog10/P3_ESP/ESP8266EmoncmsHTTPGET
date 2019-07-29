@@ -1,0 +1,203 @@
+//THIS IS FOR A NANO THAT WRITES TO THE ESP8266
+#include "SoftwareSerial.h"
+#include <avr/wdt.h>
+//For DHT22 Grove Pro
+#include "DHT.h"
+#define DHTPIN A1     // what pin we're connected to
+#define DHTTYPE DHT22   // DHT 22  (AM2302)
+DHT dht(DHTPIN, DHTTYPE);
+
+#define RESETWATCHDOG
+
+String ssid ="thanos";
+String password="8c5195bf3bbece21ae3119aae6";
+String server = "santiapps.com";//"santiapps.com";
+String uri = "/emoncms/input/post";
+//#define EMON_APIKEY F("bde919c2b47c5f12d0b1b4478f78107f")//")043bb8aecd5044e1a1a61dc9a84a85ea//
+String pwd = "bde919c2b47c5f12d0b1b4478f78107f";
+
+byte dat [5];
+String temp ,hum;
+String data;
+char dataString[20];
+char tempString[20];
+char humString[20];
+
+unsigned long previousMillis = 0;        // will store last time was updated
+const long interval = 180000; //3,600,000 = 3,600 seconds or 1 hr
+
+SoftwareSerial esp(6, 7);// RX, TX
+
+void setup() {
+  #ifdef RESETWATCHDOG
+  wdt_disable();
+  delay(2L * 1000L);
+  #endif
+  
+
+//  uint8_t lastReset = wdt_clear();
+  esp.begin(9600);
+  Serial.begin(9600);
+  Serial.println("setup");
+  //esp.print("AT+UART_DEF=9600,8,1,0,0");
+  reset();
+ 
+  #ifdef RESETWATCHDOG
+  wdt_enable(WDTO_8S);
+  #endif
+  
+  connectWifi();
+}
+
+void reset() {
+  Serial.println("reset");
+  esp.println("AT+RST");
+  delay(1000);
+  if(esp.find("OK") ) Serial.println("Module Reset");
+}
+
+void connectWifi() {
+  Serial.println("connect to wifi");  
+  String cmd = "AT+CWJAP=\"" +ssid+"\",\"" + password + "\"";
+  esp.println(cmd);
+  delay(400);
+  while (esp.available()){
+     String inData = esp.readStringUntil('\n');
+     Serial.println("Got reponse from ESP8266: " + inData);
+  }
+
+
+  if(esp.find("OK")) {
+    Serial.println("Connected!");
+  } else {
+    connectWifi();
+    Serial.println("Cannot connect to wifi"); }
+}
+
+
+void start_test () {
+  //For DHT22 Grove Pro
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  dtostrf(t, 4, 2, tempString);  //convert flat to char  
+  dtostrf(h, 4, 2, humString);  //convert flat to char
+  //strcpy(dataString,tempString);
+  //strcat(dataString,humString);
+  //Serial.println(dataString);
+}
+
+void loop(){
+//  wdt_reset(); // path the dog just in case***********************************************
+//  Serial.println("loop");
+//  start_test();
+//  httppost();
+  //millis code..........
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis <= interval) { //when time elapsed is LESS than interval of 30 mins
+//    Serial.println("keepAlive"); // print
+    
+    #ifdef RESETWATCHDOG
+    wdt_reset(); //pat the dog to keep mcu from rebooting
+    #endif
+
+  } else { //if deltaTimeElapsed is GREATER than target interval, sample and post...
+    previousMillis = currentMillis; //sets previous-0 to current-3600
+    connectWifi();
+
+    #ifdef RESETWATCHDOG
+    wdt_reset(); // path the dog just in case***********************************************
+    #endif
+
+    start_test(); //sample
+//    wdt_reset(); // path the dog just in case***********************************************
+    httppost();
+  }
+}
+
+///* See atmel doc 2551 section 2.4
+// * If you don't reset the timer on startup you can get in a horrible mess
+// * with the watchdog tripping instantly on power up before you can do
+// * anything */
+//uint8_t wdt_clear(void){
+//    uint8_t nResetReg = MCUSR;
+//    MCUSR = 0;
+//    wdt_disable();
+//    Serial.println("disable called");
+//    return nResetReg;
+//}
+
+//SINGLE PARAMETER WORKS BELOW (Also in gmail)
+/* A POST contains a header block and then a single line of the data values, something like this:
+ * 
+ * POST /emoncms/input/post.json HTTP/1.1\r\n
+ * Host: URL_OF_THE_SERVER\r\n
+ * Content-Type: application/x-www-form-urlencoded\r\n
+ * Content-Length: 100\r\n
+ * \r\n
+ * apikey=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&node=xx&csv=xx,xx,xx,xx\r\n
+ * 
+ * Most of the content is the same every time and simply hardcoded in here with print() direct to the 
+ * ethernet stream client. Two things change every time, the data themselves and the length of the
+ * string containing the data. 
+ * 
+ * The fixed strings are all written into the flash program space with F("") to prevent them filling
+ * runtime RAM.
+ */
+
+void httppost () {
+  esp.println("AT+CIPSTART=\"TCP\",\"" + server + "\",80");//start a TCP connection.
+  if( esp.find("OK")) {
+    Serial.println("TCP connection ready");
+  }
+//  wdt_reset(); // path the dog just in case***********************************************
+
+//  //CODE USED TO BUILD COMPLETE STRING
+/* A GET has no separate header and data block. Very simply:
+ * 
+ * GET /emoncms/input/post.json?apikey=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&node=xx&csv=xx,xx,xx,xx\r\n\r\n
+ * 
+ */
+//  String nodeData1="/emoncms/input/post.json?apikey=";
+//  String nodeData15=nodeData1 + pwd + "&node=fortnite&json={\"t\":";
+//  
+//  String realTempString = String(tempString);
+//  String nodeData2=nodeData15 + realTempString; //this joins string with char
+//  
+//  String nodeData3=nodeData2 + ",\"h\":";   //this adds string to a string
+//  String realHumString = String(humString);
+  //finalData=nodeData3 + realHumString + "}";//humString;
+
+  //finalData=nodeData4; //COMBINE BOTH PREVIOUS STRING OBJECTS
+  //String finalData="/emoncms/input/post.json?apikey=bde919c2b47c5f12d0b1b4478f78107f&node=fortnite&json={\"t\":33.44,\"h\":66.99}";
+  String finalData="/emoncms/input/post.json?apikey=" + pwd + "&node=fortnite&json={\"t\":" + tempString + ",\"h\":" + humString + "}";
+  Serial.println(finalData); 
+
+  #ifdef RESETWATCHDOG
+  wdt_reset(); // path the dog just in case***********************************************
+  #endif
+
+  delay(1000);
+  String getRequest="GET " + finalData + " HTTP/1.1\r\n" + "Host: " + server + "\r\n" + "Connection: keep-alive\r\n\r\n";
+  //String requestLength = String(getRequest.length());
+  Serial.println("getRequest");
+  Serial.println(getRequest);
+  String sendCmd = "AT+CIPSEND=";//determine the number of caracters to be sent.
+  esp.print(sendCmd);
+  esp.println(getRequest.length());
+//  wdt_reset(); // path the dog just in case***********************************************
+  delay(1000);
+  if(esp.find(">")) { 
+    Serial.println("Sending.."); 
+    esp.print(getRequest);
+    if(esp.find("SEND OK")) { 
+      Serial.println("Packet sent");
+      while (esp.available()) {
+        String tmpResp = esp.readString();
+        Serial.println(tmpResp);
+      }
+      // close the connection
+      esp.println("AT+CIPCLOSE");
+    }
+  }
+//  wdt_reset(); // path the dog just in case***********************************************
+}
