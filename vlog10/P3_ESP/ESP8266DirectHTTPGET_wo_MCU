@@ -74,7 +74,7 @@ void loop() {
   }
   
   // We now create a URI for the request
-  String url = String("/emoncms/input/post.json?apikey=bde919c2b47c5f12d0b1b4478f78107f&node=fortnite&json={\"t\":") + tempString + ",\"h\":" + humString + "}";
+  String url = String("/emoncms/input/post.json?apikey=yourkey&node=coffeewh&json={\"t\":") + tempString + ",\"h\":" + humString + "}";
   Serial.print("Requesting URL: ");
   Serial.println(url);
   
