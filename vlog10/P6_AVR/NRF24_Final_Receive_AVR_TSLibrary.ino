@@ -1,4 +1,27 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27,20,4);
 
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+//UNO 0 - ESP
+//UNO 1 - ESP
+//UNO 7 - NRF-CE
+//UNO 8 - NRF-CSN
+//UNO 9 -
+//UNO10 -
+//UNO11 - NRF-MOSI
+//UNO12 - NRF-MISO
+//UNO13 - NRF-SCK
+//UNOGND- ESP-GND
+//UNO3.3- RAIL - NRF-3.3V - ESP3.3V
+//UNO5V - LCD-Vcc
+//UNOGND- NRF-GND
+//UNOGND- LCD-GND
+//UNO A4- LCD-SDA
+//UNO A5- LCD-SCL
 
 #include "ThingSpeak.h"
 #include "WiFiEsp.h"
@@ -9,10 +32,22 @@ char pass[] = SECRET_PASS;   // your network password
 int keyIndex = 0;            // your network key Index number (needed only for WEP)
 WiFiEspClient  client;
 
+#define CE_PIN 7
+#define CSN_PIN 8
+const byte thisSlaveAddress[5] = {'R','x','A','A','A'};
+RF24 radio(CE_PIN, CSN_PIN);
+struct package{
+  float humedad = 0;
+  float temperatura = 0;
+};
+typedef struct package Package;
+Package dataReceived;
+bool newData = false;
+
 // Emulate Serial1 on pins 6/7 if not present
 #ifndef HAVE_HWSERIAL1
 #include "SoftwareSerial.h"
-SoftwareSerial Serial1(6, 7); // RX, TX
+SoftwareSerial Serial1(2,3); // RX, TX
 #define ESP_BAUDRATE  19200
 #else
 #define ESP_BAUDRATE  115200
@@ -32,6 +67,9 @@ void setup() {
   //Initialize serial and wait for port to open
   Serial.begin(115200);  // Initialize serial
   
+  //NRF
+  setupRadio();
+
   // initialize serial for ESP module  
   setEspBaudRate(ESP_BAUDRATE);
   
@@ -54,9 +92,46 @@ void setup() {
   ThingSpeak.begin(client);  // Initialize ThingSpeak
 }
 
-void loop() {
+void setupRadio(){
+  pinMode(10,OUTPUT);
+  radio.begin();
+  radio.setDataRate( RF24_250KBPS );
+  radio.openReadingPipe(1, thisSlaveAddress);
+  radio.startListening();
 
-  // Connect or reconnect to WiFi
+  lcd.init();
+  lcd.init();
+  lcd.backlight();
+}
+
+void loop() {
+    getData();
+    showData();
+}
+
+void getData() {
+    if ( radio.available() ) {
+        radio.read( &dataReceived, sizeof(dataReceived) );
+        newData = true;
+    }
+}
+
+void showData() {
+    if (newData == true) {
+        Serial.print("Data received ");
+        Serial.println(dataReceived.humedad);
+        Serial.println(dataReceived.temperatura);
+        lcd.setCursor(1,0);
+        lcd.print(dataReceived.humedad);
+        lcd.setCursor(1,1);
+        lcd.print(dataReceived.temperatura);
+        newData = false;
+        postDataCloud();
+    }
+}
+
+void postDataCloud(){
+ // Connect or reconnect to WiFi
   if(WiFi.status() != WL_CONNECTED){
     Serial.print("Attempting to connect to SSID: ");
     Serial.println(SECRET_SSID);
@@ -69,10 +144,8 @@ void loop() {
   }
 
   // set the fields with the values
-  ThingSpeak.setField(1, number1);
-  ThingSpeak.setField(2, number2);
-  ThingSpeak.setField(3, number3);
-  ThingSpeak.setField(4, number4);
+  ThingSpeak.setField(1, dataReceived.humedad);
+  ThingSpeak.setField(2, dataReceived.temperatura);
 
   // figure out the status message
   if(number1 > number2){
@@ -95,18 +168,7 @@ void loop() {
   }
   else{
     Serial.println("Problem updating channel. HTTP error code " + String(x));
-  }
-  
-  // change the values
-  number1++;
-  if(number1 > 99){
-    number1 = 0;
-  }
-  number2 = random(0,100);
-  number3 = random(0,100);
-  number4 = random(0,100);
-  
-  delay(20000); // Wait 20 seconds to update the channel again
+  }  
 }
 
 // This function attempts to set the ESP8266 baudrate. Boards with additional hardware serial ports
