@@ -7,12 +7,30 @@ LiquidCrystal_I2C lcd(0x27,20,4);
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
+//NRF
+//UNO 0 - ESP
+//UNO 1 - ESP
+//UNO 7 - NRF-CE
+//UNO 8 - NRF-CSN
+//UNO 9 -
+//UNO10 -
+//UNO11 - NRF-MOSI
+//UNO12 - NRF-MISO
+//UNO13 - NRF-SCK
+//UNOGND- ESP-GND
+//UNO3.3- RAIL - NRF-3.3V - ESP3.3V
+//UNO5V - LCD-Vcc
+//UNOGND- NRF-GND
+//UNOGND- LCD-GND
+//UNO A4- LCD-SDA
+//UNO A5- LCD-SCL
+//
 /////////////////////////////////////////////////////////////////////////////////////////////////////AAAAAAAAAAAAA
 
 
 #include <SoftwareSerial.h>
-#define RX 10
-#define TX 11
+#define RX 10//9
+#define TX 11//10 because 0,1 are hw serial and being used by SM...
 String AP = "WIFI_NAME";       // CHANGE ME
 String PASS = "WIFI_PASSWORD"; // CHANGE ME
 String API = "YOUR_API_KEY";   // CHANGE ME
