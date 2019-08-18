@@ -69,27 +69,6 @@ void setup() {
   
   //NRF
   setupRadio();
-
-  // initialize serial for ESP module  
-  setEspBaudRate(ESP_BAUDRATE);
-  
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for Leonardo native USB port only
-  }
-
-  Serial.print("Searching for ESP8266..."); 
-  // initialize ESP module
-  WiFi.init(&Serial1);
-
-  // check for the presence of the shield
-  if (WiFi.status() == WL_NO_SHIELD) {
-    Serial.println("WiFi shield not present");
-    // don't continue
-    while (true);
-  }
-  Serial.println("found it!");
-   
-  ThingSpeak.begin(client);  // Initialize ThingSpeak
 }
 
 void setupRadio(){
@@ -131,6 +110,29 @@ void showData() {
 }
 
 void postDataCloud(){
+  //setup wifi stuff
+ // initialize serial for ESP module  
+  setEspBaudRate(ESP_BAUDRATE);
+  
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for Leonardo native USB port only
+  }
+
+  Serial.print("Searching for ESP8266..."); 
+  // initialize ESP module
+  WiFi.init(&Serial1);
+
+  // check for the presence of the shield
+  if (WiFi.status() == WL_NO_SHIELD) {
+    Serial.println("WiFi shield not present");
+    // don't continue
+    while (true);
+  }
+  Serial.println("found it!");
+   
+  ThingSpeak.begin(client);  // Initialize ThingSpeak
+  
+  
  // Connect or reconnect to WiFi
   if(WiFi.status() != WL_CONNECTED){
     Serial.print("Attempting to connect to SSID: ");
